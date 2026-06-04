@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // -------------------------------------------------------------------------
+    // FILE STORAGE RULES
+    // -------------------------------------------------------------------------
+    
+    // Repair Attachments (Photos of issues)
+    match /repairs/{userId}/{fileName} {
+      // Anyone authenticated can read (Managers/Landlords need to see tenant uploads)
+      allow read: if isAuthenticated();
+      // Only the specific user can upload to their designated folder
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Payment Receipts
+    match /payments/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Property Images / Documents
+    match /properties/{propertyId}/{fileName} {
+      // Tenants need to see property photos
+      allow read: if isAuthenticated();
+      // We allow authenticated users to upload for simplicity, 
+      // ideally controlled via Custom Claims for Landlord role.
+      allow write: if isAuthenticated(); 
+    }
+    
+    // Profile Avatars
+    match /avatars/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}

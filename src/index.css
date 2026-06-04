@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 152 69% 31%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 152 69% 31%;
+
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 217.2 32.6% 17.5%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217.2 32.6% 17.5%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 152 69% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 152 69% 51%;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary text-[14px] font-[400];
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight text-foreground font-sans;
+  }
+}
+
+@layer utilities {
+  .text-h1 {
+    @apply text-[32px] font-[800] leading-tight flex items-center;
+  }
+  .text-h2 {
+    @apply text-[24px] font-[800] leading-snug;
+  }
+  .text-h3 {
+    @apply text-[18px] font-[600] leading-snug;
+  }
+  .text-card-title {
+    @apply text-[16px] font-[600];
+  }
+  .text-body {
+    @apply text-[14px] font-[400];
+  }
+  .text-secondary {
+    @apply text-[13px] font-[400];
+  }
+  .text-label {
+    @apply text-[12px] font-[600];
+  }
+  .text-btn {
+    @apply text-[14px] font-[600];
+  }
+  .text-metric {
+    @apply text-[28px] md:text-[32px] font-[800];
+  }
+  
+  /* Dense Card Styles */
+  .dense-card {
+    @apply bg-card border rounded-[12px] md:rounded-[16px] p-[16px] md:p-[20px] shadow-sm;
+  }
+  .stat-card {
+    @apply bg-card border rounded-[12px] md:rounded-[16px] p-[16px] md:p-[20px] shadow-sm flex flex-col justify-between min-h-[110px] md:min-h-[130px];
+  }
+}

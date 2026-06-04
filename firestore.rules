@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // HELPER FUNCTIONS
+    // -------------------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fetch the user's document to determine their role
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserRole() {
+      return getUserData().role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'Admin';
+    }
+
+    function isLandlord() {
+      return isAuthenticated() && getUserRole() == 'Landlord';
+    }
+    
+    function isManager() {
+      return isAuthenticated() && getUserRole() == 'Property Manager';
+    }
+
+    function isSecurity() {
+      return isAuthenticated() && getUserRole() == 'Security Staff';
+    }
+
+    function isTenant() {
+      return isAuthenticated() && getUserRole() == 'Tenant';
+    }
+
+    // -------------------------------------------------------------------------
+    // RULES PER COLLECTION
+    // -------------------------------------------------------------------------
+
+    // Global Admin Catch-All
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      // Anyone can read their own profile. Managers/Landlords can read all profiles to manage tenants/staff.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isLandlord() || isManager());
+      // Users can update their own profile, but cannot elevate their own role
+      allow update: if isAuthenticated() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid', 'LandlordID']);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // PROPERTIES COLLECTION
+    match /properties/{propertyId} {
+      // Tenants need to see their property details
+      allow read: if isAuthenticated(); 
+      // Only Landlords/Managers create/edit/delete
+      allow write: if isLandlord() || isManager(); 
+    }
+
+    // TENANTS COLLECTION
+    match /tenants/{tenantDocId} {
+      // Tenants can read their own tenant record (mapped by AssociatedAuthUid)
+      // Landlords/Managers can read and manage all tenants
+      allow read: if isAuthenticated() && (
+        (isTenant() && resource.data.AssociatedAuthUid == request.auth.uid) || 
+        isLandlord() || 
+        isManager()
+      );
+      allow write: if isLandlord() || isManager();
+    }
+
+    // PAYMENTS COLLECTION
+    match /payments/{paymentId} {
+      // Tenants see own payments. Landlords/Managers see all.
+      allow read: if isAuthenticated() && (
+        (isTenant() && resource.data.TenantAuthUid == request.auth.uid) ||
+        isLandlord() || isManager()
+      );
+      // Tenants can create payments. Managers/Landlords can manage statuses.
+      allow create: if isTenant() && request.resource.data.TenantAuthUid == request.auth.uid;
+      allow update, delete: if isLandlord() || isManager();
+    }
+
+    // REPAIRS COLLECTION
+    match /repairs/{repairId} {
+      allow read: if isAuthenticated() && (
+        (isTenant() && resource.data.TenantAuthUid == request.auth.uid) ||
+        isLandlord() || isManager() || isSecurity()
+      );
+      // Tenants can report (create) and update their own repairs
+      allow create: if isTenant() && request.resource.data.TenantAuthUid == request.auth.uid;
+      // Everyone involved can update (Manager marking fixed, Security adding notes)
+      allow update: if isLandlord() || isManager() || isSecurity() || (isTenant() && resource.data.TenantAuthUid == request.auth.uid);
+      allow delete: if isLandlord() || isManager();
+    }
+
+    // EXTENDED FEATURES (Notifications & Reminders)
+    match /notifications/{docId} {
+      allow read, update, delete: if isAuthenticated() && resource.data.UserID == request.auth.uid;
+      // Landlords and managers can dispatch notifications
+      allow create: if isLandlord() || isManager();
+    }
+    
+    match /reminders/{docId} {
+      allow read, write: if isAuthenticated() && resource.data.UserID == request.auth.uid;
+    }
+
+    // COMMUNITY CHAT COLLECTION
+    match /chats/{chatId} {
+      // Users can only access chats they are participants of
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.Participants;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.Participants;
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.Participants;
+        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.Participants;
+      }
+    }
+  }
+}
