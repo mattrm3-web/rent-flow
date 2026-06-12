@@ -24,7 +24,9 @@ function AddPropertyModal({
   const [propertyType, setPropertyType] = useState('Apartment');
   const [numberOfBedrooms, setNumberOfBedrooms] = useState('');
   const [numberOfFlats, setNumberOfFlats] = useState('');
+  const [status, setStatus] = useState('Vacant');
   const [managerId, setManagerId] = useState('');
+  const [currency, setCurrency] = useState(userProfile?.currency || 'USD');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -52,8 +54,10 @@ function AddPropertyModal({
         propertyType,
         numberOfBedrooms: numberOfBedrooms ? parseInt(numberOfBedrooms) : 0,
         numberOfFlats: numberOfFlats ? parseInt(numberOfFlats) : 0,
+        status,
         LandlordID: landlordId || 'unknown',
         PropertyManagerID: managerId || null,
+        currency,
         imageUrls: uploadedUrl ? [uploadedUrl] : []
       });
 
@@ -65,6 +69,7 @@ function AddPropertyModal({
       setNumberOfBedrooms('');
       setNumberOfFlats('');
       setManagerId('');
+      setCurrency(userProfile?.currency || 'USD');
       setImageFile(null);
     } catch (err: any) {
       setError(err.message || 'Failed to create property.');
@@ -105,6 +110,17 @@ function AddPropertyModal({
               <label className="text-sm font-medium block">No. of Flats</label>
               <input type="number" min="0" value={numberOfFlats} onChange={e => setNumberOfFlats(e.target.value)} className="w-full bg-background border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium block">Status</label>
+              <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-background border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
+                <option value="Vacant">Vacant</option>
+                <option value="Occupied">Occupied</option>
+                <option value="Reserved">Reserved</option>
+                <option value="Under Maintenance">Under Maintenance</option>
+                <option value="Coming Soon">Coming Soon</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium block">No. of Bedrooms (Per flat/unit)</label>
@@ -130,6 +146,23 @@ function AddPropertyModal({
               </select>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Currency</label>
+            <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-background border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="NGN">NGN (₦)</option>
+              <option value="INR">INR (₹)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="CHF">CHF (CHF)</option>
+              <option value="ZAR">ZAR (R)</option>
+            </select>
+          </div>
           <div className="pt-4 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={loading}>
@@ -148,6 +181,7 @@ export default function Properties() {
   const [managers, setManagers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
   const { userProfile, userRole } = useFirebase();
 
@@ -157,13 +191,14 @@ export default function Properties() {
       const landlordId = userRole === 'Landlord' ? userProfile?.uid : (userProfile?.landlordId || userProfile?.uid);
       
       let pSnap;
-      if (userRole === 'Landlord' || userRole === 'Admin') {
+      if (userRole === 'Admin') {
          pSnap = await getDocs(collection(db, 'properties'));
       } else if (userRole === 'Property Manager') {
          const q = query(collection(db, 'properties'), where('PropertyManagerID', '==', userProfile?.uid));
          pSnap = await getDocs(q);
       } else {
-         pSnap = await getDocs(collection(db, 'properties'));
+         const q = query(collection(db, 'properties'), where('LandlordID', '==', landlordId));
+         pSnap = await getDocs(q);
       }
 
       const props = pSnap.docs.map(doc => ({
@@ -266,10 +301,10 @@ export default function Properties() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[16px]">
           {properties.map(p => (
-            <div key={p.PropertyID} className="dense-card relative group p-[0px] overflow-hidden flex flex-col transition-colors duration-300 hover:border-emerald-500/30">
+            <div onClick={() => setSelectedProperty(p)} key={p.PropertyID} className="dense-card relative group p-[0px] overflow-hidden flex flex-col transition-colors duration-300 hover:border-emerald-500/30 cursor-pointer">
               {(userRole === 'Landlord' || userRole === 'Admin') && (
                 <button 
-                  onClick={() => handleDelete(p.PropertyID)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(p.PropertyID); }}
                   className="absolute top-[12px] right-[12px] z-10 p-[8px] bg-background/80 backdrop-blur-sm text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-[14px] h-[14px]" />
@@ -305,6 +340,60 @@ export default function Properties() {
             </div>
           ))}
         </div>
+      )}
+      {selectedProperty && (
+         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm shadow-2xl overflow-y-auto">
+            <div className="bg-background max-w-lg w-full rounded-3xl overflow-hidden shadow-2xl relative my-8">
+               <div className="p-6 border-b flex justify-between items-center bg-muted/30">
+                  <h2 className="text-xl font-bold font-serif">{selectedProperty.PropertyName}</h2>
+                  <button onClick={() => setSelectedProperty(null)} className="p-2 hover:bg-muted rounded-full">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               <div className="p-6 space-y-6">
+                  {selectedProperty.imageUrls && selectedProperty.imageUrls.length > 0 && (
+                     <img src={selectedProperty.imageUrls[0]} alt="Property" className="w-full h-48 object-cover rounded-xl" />
+                  )}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                     <div className="bg-muted p-3 rounded-xl">
+                        <p className="text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1">Status</p>
+                        <p className="font-bold">{selectedProperty.status}</p>
+                     </div>
+                     <div className="bg-muted p-3 rounded-xl">
+                        <p className="text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1">Type</p>
+                        <p className="font-bold">{selectedProperty.propertyType}</p>
+                     </div>
+                     <div className="bg-muted p-3 rounded-xl">
+                        <p className="text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1">Rent</p>
+                        <p className="font-bold">{selectedProperty.currency || 'NGN'}{selectedProperty.monthlyRent?.toLocaleString()}</p>
+                     </div>
+                     <div className="bg-muted p-3 rounded-xl">
+                        <p className="text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1">Bedrooms</p>
+                        <p className="font-bold">{selectedProperty.numberOfBedrooms}</p>
+                     </div>
+                  </div>
+                  <div>
+                     <p className="text-sm font-bold mb-1">Address</p>
+                     <p className="text-sm text-muted-foreground">{selectedProperty.Address}</p>
+                  </div>
+                  {selectedProperty.status === 'Vacant' && (userRole === 'Landlord' || userRole === 'Property Manager') && (
+                     <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center justify-between">
+                        <div>
+                           <p className="text-sm font-bold text-emerald-900">Unit is Vacant</p>
+                           <p className="text-xs text-emerald-700">Ready to find a new tenant?</p>
+                        </div>
+                        <Button 
+                           size="sm" 
+                           className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+                           onClick={() => window.location.href = '/vacancies'}
+                        >
+                           List on Marketplace
+                        </Button>
+                     </div>
+                  )}
+               </div>
+            </div>
+         </div>
       )}
     </div>
   );

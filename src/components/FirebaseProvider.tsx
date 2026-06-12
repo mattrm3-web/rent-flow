@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut, deleteUser } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { UserProfile, UserRole } from '../types';
 
@@ -58,19 +58,25 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                fetchedRole = 'Landlord';
             }
             
-            setUserProfile({ ...data, role: fetchedRole });
+            setUserProfile({ ...data, role: fetchedRole, uid: user.uid });
             setUserRole(fetchedRole);
             setIsLoading(false);
           } else {
             // Document doesn't exist
-            const creationTime = new Date(user.metadata.creationTime || '').getTime();
+            const creationTimeStr = user.metadata.creationTime;
+            const creationTime = creationTimeStr ? new Date(creationTimeStr).getTime() : 0;
             const now = Date.now();
-            if (now - creationTime > 15000) {
-              // User profile deleted -> force logout
-              signOut(auth);
+            if (now - creationTime > 5000) {
+              // User profile deleted -> force logout and delete auth user to clean up orphaned accounts
+              deleteUser(user).catch((e) => {
+                 console.log("Could not delete orphaned user, signing out", e);
+                 signOut(auth);
+              });
               setUserProfile(null);
               setUserRole(null);
               setIsLoading(false);
+            } else {
+              setTimeout(() => setIsLoading(false), 2000);
             }
           }
         }, (error) => {

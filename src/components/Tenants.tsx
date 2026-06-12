@@ -1,14 +1,71 @@
 import { useState, useEffect } from 'react';
 import { db, secondaryAuth } from '../firebase';
-import { collection, getDocs, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { collection, getDocs, addDoc, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { useFirebase } from './FirebaseProvider';
 import { filteredCountryCodes } from '../lib/countryCodes';
-import { Users, Plus, Mail, Building2, Search, X, Loader2, Trash2 } from 'lucide-react';
+import { Users, Plus, Mail, Building2, Search, X, Loader2, Trash2, Download } from 'lucide-react';
 import { Tenant, Property } from '../types';
 import { Button } from './ui/button';
+import { jsPDF } from 'jspdf';
 
-function AddTenantModal({ isOpen, onClose, properties, onSuccess }: { isOpen: boolean, onClose: () => void, properties: Property[], onSuccess: (msg: string) => void }) {
+function CredentialsModal({ isOpen, onClose, credentials }: { isOpen: boolean, onClose: () => void, credentials: {email: string, password: string, name: string} | null }) {
+  if (!isOpen || !credentials) return null;
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(22);
+    doc.text("RentFlow Pro - Tenant Credentials", 20, 30);
+    doc.setFontSize(16);
+    doc.text(`Hello ${credentials.name},`, 20, 50);
+    doc.setFontSize(14);
+    doc.text("Your tenant account has been created. Here are your login details:", 20, 65);
+    
+    doc.text(`Login URL: ${window.location.origin}/login`, 20, 85);
+    doc.text(`Email: ${credentials.email}`, 20, 95);
+    doc.text(`Temporary Password: ${credentials.password}`, 20, 105);
+    
+    doc.text("Please log in and reset your password immediately.", 20, 125);
+    doc.save(`${credentials.name.replace(/\s+/g, '_')}_Credentials.pdf`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+      <div className="bg-card w-full max-w-md rounded-3xl shadow-float border p-6 relative">
+        <button onClick={onClose} className="absolute top-6 right-6 text-muted-foreground hover:text-foreground">
+          <X className="w-5 h-5" />
+        </button>
+        <h2 className="text-2xl font-bold mb-4">Tenant Credentials</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          The tenant's account has been generated. An automatic password reset email has been sent to their inbox.
+          You can also download this PDF to manually send them their login link and temporary password.
+        </p>
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-6 space-y-3">
+          <div>
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Login Link</p>
+            <p className="font-medium">{window.location.origin}/login</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Email (Login)</p>
+            <p className="font-medium">{credentials.email}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Temporary Password</p>
+            <p className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{credentials.password}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Done</Button>
+          <Button type="button" className="flex-1" onClick={handleDownloadPDF}>
+            <Download className="w-4 h-4 mr-2" /> Download PDF
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddTenantModal({ isOpen, onClose, properties, onSuccess }: { isOpen: boolean, onClose: () => void, properties: Property[], onSuccess: (credentials: {email: string, password: string, name: string}) => void }) {
   const { userProfile, userRole } = useFirebase();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -64,9 +121,14 @@ function AddTenantModal({ isOpen, onClose, properties, onSuccess }: { isOpen: bo
         status: 'Active'
       });
 
-      await sendPasswordResetEmail(secondaryAuth, email);
+      try {
+        await sendEmailVerification(userCredential.user);
+        await sendPasswordResetEmail(secondaryAuth, email);
+      } catch (emailErr) {
+        console.warn("Failed to send reset email, but account was created.", emailErr);
+      }
 
-      onSuccess(`Tenant created successfully. Temporary password: ${tempPassword}`);
+      onSuccess({ email, password: tempPassword, name });
       onClose();
       // Clear form
       setName('');
@@ -78,7 +140,13 @@ function AddTenantModal({ isOpen, onClose, properties, onSuccess }: { isOpen: bo
       setMoveInDate('');
       setLeaseEndDate('');
     } catch (err: any) {
-      setError(err.message || 'Failed to create tenant.');
+      if (err.code === 'auth/email-already-in-use') {
+         setError('Email is already registered. If they previously had an account, they must log in to it first to clean it up.');
+      } else if (err.code === 'auth/network-request-failed') {
+         setError('Network error. Ensure ad-blockers are disabled, or open the app in a new tab.');
+      } else {
+         setError(err.message || 'Failed to create tenant.');
+      }
     } finally {
       setLoading(false);
     }
@@ -181,23 +249,153 @@ function AddTenantModal({ isOpen, onClose, properties, onSuccess }: { isOpen: bo
   );
 }
 
+function TenantDetailsModal({ isOpen, onClose, tenant, properties }: { isOpen: boolean, onClose: () => void, tenant: Tenant | null, properties: Property[] }) {
+  const { userProfile } = useFirebase();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [repairs, setRepairs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const defaultCur = userProfile?.currency || 'USD';
+  const currencyMap: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', JPY: '¥', NGN: '₦', INR: '₹', SGD: 'S$', CHF: 'CHF', ZAR: 'R' };
+  
+  const property = properties.find(p => p.PropertyID === tenant?.PropertyID);
+  const currSym = currencyMap[property?.currency || defaultCur] || '$';
+
+  useEffect(() => {
+    if (!isOpen || !tenant || !tenant.id) return;
+    const fetchHistory = async () => {
+      setLoading(true);
+      try {
+        const pQ = query(collection(db, 'payments'), where('tenantId', '==', tenant.id));
+        const pSnap = await getDocs(pQ);
+        setPayments(pSnap.docs.map(doc => ({id: doc.id, ...doc.data()})).sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        
+        const rQ = query(collection(db, 'repairs'), where('TenantID', '==', tenant.AssociatedAuthUid || tenant.id));
+        const rSnap = await getDocs(rQ);
+        setRepairs(rSnap.docs.map(doc => ({id: doc.id, ...doc.data()})));
+      } catch(e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [tenant, isOpen]);
+
+  if (!isOpen || !tenant) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+      <div className="bg-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-3xl shadow-float border">
+        <div className="flex items-center justify-between p-6 border-b shrink-0">
+          <div>
+            <h2 className="text-xl font-bold">{tenant.TenantName}'s Profile</h2>
+            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground"><Mail className="w-4 h-4"/> {tenant.Email}</div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto space-y-6 bg-muted/20">
+           {loading ? (
+             <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+           ) : (
+             <>
+                <div className="bg-card rounded-2xl p-5 border shadow-sm flex flex-col sm:flex-row gap-6">
+                   <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-1">Lease Details</h3>
+                      <p className="font-medium text-lg">{property?.PropertyName || 'Unassigned Property'}</p>
+                      {tenant.UnitIdentifier && <p className="text-sm">Unit: {tenant.UnitIdentifier}</p>}
+                   </div>
+                   <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-1">Rent Settings</h3>
+                      <p className="font-medium text-lg text-emerald-600">{currSym}{tenant.RentAmount?.toLocaleString()}</p>
+                      <p className="text-sm">{tenant.RentFrequency || 'Monthly'}</p>
+                   </div>
+                </div>
+
+                <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+                   <h3 className="text-sm font-semibold text-muted-foreground p-5 border-b bg-muted/10">Payment History</h3>
+                   {payments.length === 0 ? <p className="p-5 text-sm text-muted-foreground">No payments found.</p> : (
+                      <table className="w-full text-sm">
+                         <tbody>
+                            {payments.map(p => (
+                               <tr key={p.id} className="border-b last:border-0 hover:bg-muted/10">
+                                  <td className="p-4">{new Date(p.date).toLocaleDateString()}</td>
+                                  <td className="p-4 font-semibold">{currSym}{p.amount.toLocaleString()}</td>
+                                  <td className="p-4"><span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">{p.status}</span></td>
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   )}
+                </div>
+
+                <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+                   <h3 className="text-sm font-semibold text-muted-foreground p-5 border-b bg-muted/10">Maintenance Requests</h3>
+                   {repairs.length === 0 ? <p className="p-5 text-sm text-muted-foreground">No repair requests.</p> : (
+                      <table className="w-full text-sm">
+                         <tbody>
+                            {repairs.map(r => (
+                               <tr key={r.id} className="border-b last:border-0 hover:bg-muted/10">
+                                  <td className="p-4 font-medium">{r.IssueTitle}</td>
+                                  <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{r.Status}</span></td>
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   )}
+                </div>
+             </>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Tenants() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [credentialsModal, setCredentialsModal] = useState<{isOpen: boolean, credentials: {email: string, password: string, name: string} | null}>({isOpen: false, credentials: null});
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
   const { userProfile, userRole } = useFirebase();
-  const cur = userProfile?.currency || 'USD';
+
+  const defaultCur = userProfile?.currency || 'USD';
   const currencyMap: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', JPY: '¥', NGN: '₦', INR: '₹', SGD: 'S$', CHF: 'CHF', ZAR: 'R' };
-  const currencySymbol = currencyMap[cur] || '$';
+  
+  const getCurrencySymbol = (propertyId: string | null) => {
+    if (!propertyId) return currencyMap[defaultCur] || '$';
+    const p = properties.find(prop => prop.PropertyID === propertyId);
+    return currencyMap[p?.currency || defaultCur] || '$';
+  };
 
   const fetchData = async () => {
     try {
-      const tSnap = await getDocs(collection(db, 'tenants'));
-      setTenants(tSnap.docs.map(doc => ({...doc.data(), TenantID: doc.id}) as Tenant));
+      const landlordId = userRole === 'Landlord' ? userProfile?.uid : (userProfile?.landlordId || userProfile?.uid);
+
+      let tSnap, pSnap;
+      if (userRole === 'Admin') {
+        tSnap = await getDocs(collection(db, 'tenants'));
+        pSnap = await getDocs(collection(db, 'properties'));
+      } else if (userRole === 'Property Manager') {
+        const qP = query(collection(db, 'properties'), where('PropertyManagerID', '==', userProfile?.uid));
+        pSnap = await getDocs(qP);
+        
+        const qT = query(collection(db, 'tenants'), where('LandlordID', '==', landlordId));
+        tSnap = await getDocs(qT);
+      } else {
+        const qT = query(collection(db, 'tenants'), where('LandlordID', '==', landlordId));
+        tSnap = await getDocs(qT);
+        
+        const qP = query(collection(db, 'properties'), where('LandlordID', '==', landlordId));
+        pSnap = await getDocs(qP);
+      }
       
-      const pSnap = await getDocs(collection(db, 'properties'));
+      setTenants(tSnap.docs.map(doc => ({...doc.data(), TenantID: doc.id}) as Tenant));
       setProperties(pSnap.docs.map(doc => ({...doc.data(), PropertyID: doc.id}) as Property));
     } catch (e) {
       console.error(e);
@@ -210,8 +408,9 @@ export default function Tenants() {
     fetchData();
   }, []);
 
-  const handleSuccess = (msg: string) => {
-    setStatusMsg({ type: 'success', text: msg });
+  const handleSuccess = (credentials: {email: string, password: string, name: string}) => {
+    setStatusMsg({ type: 'success', text: 'Tenant created successfully.' });
+    setCredentialsModal({ isOpen: true, credentials });
     setTimeout(() => setStatusMsg(null), 5000);
     fetchData();
   };
@@ -219,10 +418,20 @@ export default function Tenants() {
   const handleDelete = async (id: string, authUid?: string) => {
     try {
       await deleteDoc(doc(db, 'tenants', id));
+      
       if (authUid) {
+        // Find and delete associated payments
+        const pQ = query(collection(db, 'payments'), where('TenantID', '==', authUid));
+        const pSnap = await getDocs(pQ);
+        for(let dSnap of pSnap.docs) {
+           await deleteDoc(doc(db, 'payments', dSnap.id));
+        }
+
+        // Delete the user record
         await deleteDoc(doc(db, 'users', authUid));
       }
-      setStatusMsg({ type: 'success', text: 'Tenant deleted successfully' });
+
+      setStatusMsg({ type: 'success', text: 'Tenant and associated records deleted' });
       setTimeout(() => setStatusMsg(null), 3000);
       fetchData();
     } catch (e) {
@@ -248,8 +457,10 @@ export default function Tenants() {
           <div className="font-[600] text-[14px]">{statusMsg.text}</div>
         </div>
       )}
+      <CredentialsModal isOpen={credentialsModal.isOpen} credentials={credentialsModal.credentials} onClose={() => setCredentialsModal({isOpen: false, credentials: null})} />
       <AddTenantModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} properties={properties} onSuccess={handleSuccess} />
       
+      <TenantDetailsModal isOpen={!!selectedTenant} onClose={() => setSelectedTenant(null)} tenant={selectedTenant} properties={properties} />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-[32px] gap-[16px]">
         <div>
           <h1 className="text-h1 mb-[4px]">Tenants</h1>
@@ -288,7 +499,7 @@ export default function Tenants() {
           {filteredTenants.map(t => {
             const property = properties.find(p => p.PropertyID === t.PropertyID);
             return (
-              <div key={t.TenantID} className="dense-card relative group shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-emerald-500/30 flex flex-col justify-between h-[180px]">
+              <div onClick={() => setSelectedTenant(t)} key={t.TenantID} className="dense-card relative group shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-emerald-500/30 flex flex-col justify-between h-[180px]">
                 {(userRole === 'Landlord' || userRole === 'Admin') && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDelete(t.TenantID, t.AssociatedAuthUid); }}
@@ -318,7 +529,7 @@ export default function Tenants() {
                     <div className="flex items-center justify-between text-[13px] font-[600]">
                       <span className="text-muted-foreground font-[400]">{t.RentFrequency === 'Monthly' ? 'Month' : t.RentFrequency}</span>
                       <span className="text-emerald-600 dark:text-emerald-400">
-                        {currencySymbol}{t.RentAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {getCurrencySymbol(t.PropertyID || null)}{t.RentAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}

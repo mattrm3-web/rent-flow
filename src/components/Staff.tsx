@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, secondaryAuth } from '../firebase';
 import { collection, getDocs, doc, setDoc, query, where, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { useFirebase } from './FirebaseProvider';
 import { Plus, Mail, Shield, X, Loader2, Trash2 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
@@ -41,6 +41,7 @@ function AddStaffModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClos
         requirePasswordReset: true
       });
 
+      await sendEmailVerification(userCredential.user);
       await sendPasswordResetEmail(secondaryAuth, email);
 
       onSuccess(`${role} created successfully. Temporary password: ${tempPassword}`);
@@ -50,7 +51,13 @@ function AddStaffModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClos
       setPhoneNumber('');
       setRole('Security Staff');
     } catch (err: any) {
-      setError(err.message || 'Failed to create staff member.');
+      if (err.code === 'auth/email-already-in-use') {
+         setError('Email is already registered. If they previously had an account, they must log in to it first to clean it up.');
+      } else if (err.code === 'auth/network-request-failed') {
+         setError('Network error. Ensure ad-blockers are disabled, or open the app in a new tab.');
+      } else {
+         setError(err.message || 'Failed to create staff member.');
+      }
     } finally {
       setLoading(false);
     }

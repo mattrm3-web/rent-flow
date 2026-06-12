@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail, 
   sendEmailVerification, 
-  confirmPasswordReset 
+  confirmPasswordReset
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -13,9 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFirebase } from './FirebaseProvider';
 import { filteredCountryCodes } from '../lib/countryCodes';
+import { UserRole } from '../types';
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
-type UserRole = 'Admin' | 'Landlord' | 'Property Manager' | 'Security Staff' | 'Tenant' | 'Service Provider';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -61,25 +61,49 @@ export default function Login() {
 
     try {
       if (mode === 'register') {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        let userCredential;
+        try {
+           userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        } catch (registerErr: any) {
+           if (registerErr.code === 'auth/email-already-in-use') {
+              // Try to sign in. Maybe it's an orphaned account without a DB profile.
+              try {
+                 const cred = await signInWithEmailAndPassword(auth, email, password);
+                 const { getDoc } = await import('firebase/firestore');
+                 const p = await getDoc(doc(db, 'users', cred.user.uid));
+                 if (!p.exists()) {
+                    userCredential = cred; // Treat as successful registration!
+                 } else {
+                    throw registerErr; // Normal email in use
+                 }
+              } catch (signInErr) {
+                 throw registerErr; // They typed a different password or something else failed, throw original
+              }
+           } else {
+              throw registerErr;
+           }
+        }
         
         let userData: any = {
           uid: userCredential.user.uid,
           email,
           name,
+          displayName: name,
           phoneNumber,
           nationality,
           currency,
           role,
+          accountStatus: 'Active',
+          verificationStatus: 'Pending',
+          profileCompleted: false,
           createdAt: new Date().toISOString()
         };
 
+        if (role === 'Landlord' || role === 'Property Seeker') {
+           userData.verificationStatus = 'Approved';
+        }
+
         if (role === 'Service Provider') {
-          userData = {
-            ...userData,
-            ownerName: name,
-            verificationStatus: 'Pending',
-          };
           // Also init in serviceProviders collection
           await setDoc(doc(db, 'serviceProviders', userCredential.user.uid), {
              ...userData,
@@ -98,6 +122,8 @@ export default function Login() {
              averageRating: 0
           });
         }
+        
+        // Let Developer and Agency default to Pending status
 
         // Create the user profile in Firestore
         await setDoc(doc(db, 'users', userCredential.user.uid), userData);
@@ -124,10 +150,13 @@ export default function Login() {
         navigate('/login'); // Clear out the query parameters safely
       }
     } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') setError('Email is already registered.');
+      if (err.code === 'auth/email-already-in-use') {
+         setError('Email is already registered. If you previously deleted an account and are stuck, reset your password, log in, and try again.');
+      }
       else if (err.code === 'auth/wrong-password') setError('Incorrect password provided.');
       else if (err.code === 'auth/user-not-found') setError('No user found with this email.');
       else if (err.code === 'auth/weak-password') setError('Password should be at least 6 characters.');
+      else if (err.code === 'auth/network-request-failed') setError('Network request failed. Please check your connection, disable ad-blockers, or open the app in a new tab instead of the preview window.');
       else setError(err.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
@@ -209,7 +238,10 @@ export default function Login() {
                         className="w-full bg-background border rounded-[12px] px-[16px] py-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[400] appearance-none"
                       >
                         <option value="Landlord">Landlord</option>
+                        <option value="Property Seeker">Property Seeker</option>
                         <option value="Service Provider">Service Provider</option>
+                        <option value="Agency">Agency</option>
+                        <option value="Developer">Developer</option>
                       </select>
                     </div>
                     <div className="space-y-[6px]">

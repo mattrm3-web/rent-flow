@@ -105,25 +105,51 @@ service cloud.firestore {
 
     // EXTENDED FEATURES (Notifications & Reminders)
     match /notifications/{docId} {
-      allow read, update, delete: if isAuthenticated() && resource.data.UserID == request.auth.uid;
-      // Landlords and managers can dispatch notifications
-      allow create: if isLandlord() || isManager();
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Admins, Landlords and managers can dispatch notifications
+      allow create: if isAdmin() || isLandlord() || isManager();
     }
     
     match /reminders/{docId} {
       allow read, write: if isAuthenticated() && resource.data.UserID == request.auth.uid;
     }
 
+    match /serviceProviders/{docId} {
+      // Anyone authenticated can view service providers (e.g., marketplace)
+      allow read: if isAuthenticated();
+      // Service provider can create/update their own profile
+      allow create: if isAuthenticated() && request.auth.uid == docId;
+      allow update: if isAuthenticated() && request.auth.uid == docId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verificationStatus', 'completedJobs', 'averageRating']);
+      allow delete: if isAuthenticated() && request.auth.uid == docId;
+    }
+
+    match /serviceBookings/{docId} {
+      allow read: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid || 
+        resource.data.providerId == request.auth.uid || 
+        isLandlord() || isManager()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.providerId == request.auth.uid || 
+        resource.data.requesterId == request.auth.uid
+      );
+    }
+
+    match /calls/{callId} {
+      allow read, write: if isAuthenticated();
+      
+      match /candidates/{candidateId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
     // COMMUNITY CHAT COLLECTION
     match /chats/{chatId} {
-      // Users can only access chats they are participants of
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.Participants;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.Participants;
+      allow read, write: if isAuthenticated();
       
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.Participants;
-        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.Participants;
+        allow read, write: if isAuthenticated();
       }
     }
   }

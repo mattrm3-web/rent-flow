@@ -1,0 +1,6 @@
+{
+  "name": "RentFlow Pro",
+  "description": "Property management platform with messaging and repair module",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

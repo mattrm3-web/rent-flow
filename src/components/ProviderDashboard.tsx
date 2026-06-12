@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useFirebase } from './FirebaseProvider';
 import { ServiceBooking, ServiceProvider } from '../types';
@@ -15,9 +15,9 @@ export default function ProviderDashboard() {
     const fetchData = async () => {
       if (!userProfile?.uid) return;
       try {
-        const pSnap = await getDocs(query(collection(db, 'serviceProviders'), where('uid', '==', userProfile.uid)));
-        if (!pSnap.empty) {
-          setProviderData({ id: pSnap.docs[0].id, ...pSnap.docs[0].data() } as ServiceProvider);
+        const pDoc = await getDoc(doc(db, 'serviceProviders', userProfile.uid));
+        if (pDoc.exists()) {
+          setProviderData({ id: pDoc.id, ...pDoc.data() } as ServiceProvider);
         }
 
         const bSnap = await getDocs(query(collection(db, 'serviceBookings'), where('providerId', '==', userProfile.uid)));

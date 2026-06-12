@@ -1,42 +1,16 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
-import { Building2, LayoutDashboard, Users, Settings, LogOut, Sun, Moon, Shield, Bell, CreditCard, Wrench, AlertCircle } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Building2, LayoutDashboard, Users, Settings, LogOut, Sun, Moon, Shield, Bell, CreditCard, Wrench, AlertCircle, CheckCircle2, XCircle, MessageSquare, Mail, Home, FileText, Search } from 'lucide-react';
 import { useFirebase } from './components/FirebaseProvider';
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { updatePassword } from 'firebase/auth';
-import { doc, updateDoc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { updatePassword, deleteUser } from 'firebase/auth';
+import { doc, updateDoc, setDoc, addDoc, collection, query, where, getDocs, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Property } from './types';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, AreaChart, Area } from 'recharts';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebase';
 import { filteredCountryCodes } from './lib/countryCodes';
 
-const sampleRevenueData = [
-  { name: 'Jan', revenue: 4000 },
-  { name: 'Feb', revenue: 3000 },
-  { name: 'Mar', revenue: 5000 },
-  { name: 'Apr', revenue: 4500 },
-  { name: 'May', revenue: 6000 },
-  { name: 'Jun', revenue: 7000 },
-];
 
-const sampleOccupancyData = [
-  { name: 'Jan', rate: 85 },
-  { name: 'Feb', rate: 88 },
-  { name: 'Mar', rate: 90 },
-  { name: 'Apr', rate: 89 },
-  { name: 'May', rate: 92 },
-  { name: 'Jun', rate: 95 },
-];
-
-const sampleRepairData = [
-  { name: 'Jan', repairs: 12 },
-  { name: 'Feb', repairs: 19 },
-  { name: 'Mar', repairs: 15 },
-  { name: 'Apr', repairs: 8 },
-  { name: 'May', repairs: 10 },
-  { name: 'Jun', repairs: 5 },
-];
 
 const Login = lazy(() => import('./components/Login'));
 const Properties = lazy(() => import('./components/Properties'));
@@ -45,21 +19,46 @@ const Staff = lazy(() => import('./components/Staff'));
 const Payments = lazy(() => import('./components/Payments'));
 const ProviderDashboard = lazy(() => import('./components/ProviderDashboard'));
 const Marketplace = lazy(() => import('./components/Marketplace'));
+const Repairs = lazy(() => import('./components/Repairs'));
+const Leases = lazy(() => import('./components/Leases'));
+const Finance = lazy(() => import('./components/Finance'));
+const Messages = lazy(() => import('./components/Messages'));
+const SecurityDashboard = lazy(() => import('./components/SecurityDashboard'));
+const VacanciesAdmin = lazy(() => import('./components/ListingsModule/VacanciesAdmin'));
+const PublicMarketplace = lazy(() => import('./components/ListingsModule/PublicMarketplace'));
 
-function AdminDashboard() {
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const ProfileCompletion = lazy(() => import('./components/ProfileCompletion'));
+
+function ManagerDashboard() {
   return (
-    <div className="flex-1 p-6 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-      <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-      <p className="text-muted-foreground mt-1 text-sm">System administration and platform overview.</p>
+    <div className="flex-1 p-[24px] lg:p-[48px] animate-in fade-in zoom-in-95 duration-300">
+      <div className="mb-[32px]">
+        <h1 className="text-h1 mb-[4px]">Manager Dashboard</h1>
+        <p className="text-body text-muted-foreground">Manage your assigned properties.</p>
+      </div>
     </div>
   );
 }
 
-function SecurityDashboard() {
+function AgencyDashboard() {
   return (
-    <div className="flex-1 p-6 md:p-8 animate-in fade-in zoom-in-95 duration-300">
-      <h1 className="text-3xl font-bold tracking-tight">Security Dashboard</h1>
-      <p className="text-muted-foreground mt-1 text-sm">Monitor properties and report incidents.</p>
+    <div className="flex-1 p-[24px] lg:p-[48px] animate-in fade-in zoom-in-95 duration-300">
+      <div className="mb-[32px]">
+        <h1 className="text-h1 mb-[4px]">Agency Dashboard</h1>
+        <p className="text-body text-muted-foreground">Manage your listings.</p>
+      </div>
+    </div>
+  );
+}
+
+function DeveloperDashboard() {
+  return (
+    <div className="flex-1 p-[24px] lg:p-[48px] animate-in fade-in zoom-in-95 duration-300">
+      <div className="mb-[32px]">
+        <h1 className="text-h1 mb-[4px]">Developer Dashboard</h1>
+        <p className="text-body text-muted-foreground">Manage your development projects.</p>
+      </div>
     </div>
   );
 }
@@ -90,11 +89,11 @@ function TenantDashboard() {
             </div>
             <span className="text-[13px] font-[600]">Plumbing</span>
           </Link>
-          <Link to="/marketplace" className="p-[16px] rounded-[16px] border border-dashed hover:border-primary hover:bg-primary/5 transition-all text-center flex flex-col items-center">
+          <Link to="/leases" className="p-[16px] rounded-[16px] border border-dashed hover:border-primary hover:bg-primary/5 transition-all text-center flex flex-col items-center">
             <div className="w-[48px] h-[48px] rounded-full bg-emerald-500/10 text-emerald-600 flex justify-center items-center mb-[12px]">
-              <Sun className="w-[24px] h-[24px]" /> 
+              <FileText className="w-[24px] h-[24px]" /> 
             </div>
-            <span className="text-[13px] font-[600]">Cleaning</span>
+            <span className="text-[13px] font-[600]">My Lease</span>
           </Link>
           <Link to="/marketplace" className="p-[16px] rounded-[16px] border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-all text-center flex flex-col items-center">
             <div className="w-[48px] h-[48px] rounded-full bg-rose-500/10 text-rose-600 flex justify-center items-center mb-[12px]">
@@ -114,8 +113,12 @@ function RoleBasedRedirect() {
   if (userRole === 'Admin') return <Navigate to="/admin" replace />;
   if (userRole === 'Security Staff') return <Navigate to="/security" replace />;
   if (userRole === 'Tenant') return <Navigate to="/tenant" replace />;
-  if (userRole === 'Landlord' || userRole === 'Property Manager') return <Navigate to="/dashboard" replace />;
+  if (userRole === 'Landlord') return <Navigate to="/dashboard" replace />;
+  if (userRole === 'Property Manager') return <Navigate to="/manager" replace />;
   if (userRole === 'Service Provider') return <Navigate to="/provider" replace />;
+  if (userRole === 'Property Seeker') return <Navigate to="/portal" replace />;
+  if (userRole === 'Agency') return <Navigate to="/agency" replace />;
+  if (userRole === 'Developer') return <Navigate to="/developer" replace />;
   
   return (
     <div className="flex-1 p-6 flex flex-col items-center justify-center">
@@ -153,39 +156,103 @@ function RequireRole({ children, allowedRoles }: { children: React.ReactNode, al
 function Dashboard() {
   const { userProfile, userRole } = useFirebase();
   const [managerStats, setManagerStats] = useState<{name: string, count: number, email: string}[]>([]);
+  const [metrics, setMetrics] = useState({ revenue: 0, outstanding: 0, repairs: 0, occupancyRate: 0, activeLeases: 0 });
+  const [dataLoaded, setDataLoaded] = useState(false);
   const cur = userProfile?.currency || 'USD';
   const currencyMap: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', JPY: '¥', NGN: '₦', INR: '₹', SGD: 'S$', CHF: 'CHF', ZAR: 'R' };
   const currencySymbol = currencyMap[cur] || '$';
 
   useEffect(() => {
-    const fetchManagerData = async () => {
-      if (userRole === 'Landlord' && userProfile?.uid) {
-        try {
-          const mQ = query(collection(db, 'users'), where('landlordId', '==', userProfile.uid), where('role', '==', 'Property Manager'));
-          const mSnap = await getDocs(mQ);
-          const managers = mSnap.docs.map(d => ({ uid: d.id, ...d.data() } as {uid: string, name?: string, email?: string}));
-
-          const pQ = query(collection(db, 'properties'), where('LandlordID', '==', userProfile.uid));
-          const pSnap = await getDocs(pQ);
-          const properties = pSnap.docs.map(d => d.data() as Property);
-
-          let stats = managers.map(m => {
-            const propCount = properties.filter(p => p.PropertyManagerID === m.uid).length;
-            return {
-              name: m.name || 'Unknown',
-              email: m.email || '',
-              count: propCount
-            };
-          });
-
-          stats.sort((a, b) => b.count - a.count);
-          setManagerStats(stats);
-        } catch (e) {
-          console.error(e);
+    const fetchData = async () => {
+      if (!userProfile?.uid) return;
+      try {
+        const landlordId = userRole === 'Admin' ? userProfile.uid : (userProfile.landlordId || userProfile.uid);
+        
+        let tenants: any[] = [];
+        let payments: any[] = [];
+        
+        if (userRole === 'Property Manager') {
+            const propQ = query(collection(db, 'properties'), where('PropertyManagerID', '==', userProfile.uid));
+            const pSnap = await getDocs(propQ);
+            const managedProps = pSnap.docs.map(d => d.id);
+            if (managedProps.length > 0) {
+               // Assuming few properties for the PM, or just fetch all tenants and filter client side
+               const tQ = query(collection(db, 'tenants'), where('LandlordID', '==', landlordId));
+               const tSnap = await getDocs(tQ);
+               tenants = tSnap.docs.filter(d => managedProps.includes(d.data().PropertyID)).map(d => ({id: d.id, ...d.data()}));
+            }
+        } else {
+            const tQ = query(collection(db, 'tenants'), where('LandlordID', '==', landlordId));
+            const tSnap = await getDocs(tQ);
+            tenants = tSnap.docs.map(d => ({id: d.id, ...d.data()}));
         }
+
+        const paySnap = await getDocs(collection(db, 'payments'));
+        payments = paySnap.docs.map(d => ({id: d.id, ...d.data()}));
+
+        const tenantIds = tenants.map(t => t.id);
+        const myPayments = payments.filter(p => tenantIds.includes(p.tenantId));
+        
+        const rev = myPayments.filter(p => p.status === 'Paid').reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        
+        const outstanding = tenants.reduce((acc, t) => {
+            const paid = myPayments.filter(p => p.tenantId === t.id && p.status === 'Paid').reduce((sum, p) => sum + (p.amount || 0), 0);
+            return acc + Math.max(0, (t.RentAmount || 0) - paid);
+        }, 0);
+
+        let activeRepairs = 0;
+        try {
+            const rQ = query(collection(db, 'repairs'), where('LandlordID', '==', landlordId));
+            const rSnap = await getDocs(rQ);
+            activeRepairs = rSnap.docs.filter(d => d.data().Status !== 'Resolved').length;
+        } catch(e) {}
+
+        let activeLeases = 0;
+        try {
+            const lQ = query(collection(db, 'leases'), where('LandlordID', '==', landlordId));
+            const lSnap = await getDocs(lQ);
+            activeLeases = lSnap.docs.filter(d => d.data().Status === 'Active').length;
+        } catch(e) {}
+
+        let propertiesCount = 0;
+        if (userRole === 'Property Manager') {
+           const propQ = query(collection(db, 'properties'), where('PropertyManagerID', '==', userProfile.uid));
+           const pSnap = await getDocs(propQ);
+           propertiesCount = pSnap.docs.length;
+        } else {
+           const propQ = query(collection(db, 'properties'), where('LandlordID', '==', landlordId));
+           const pSnap = await getDocs(propQ);
+           propertiesCount = pSnap.docs.length;
+        }
+        
+        // Active tenant records usually are ones that exist and are linked to a property.
+        const activeTenantsCount = tenants.filter(t => t.PropertyID).length;
+        const occupancyRate = propertiesCount > 0 ? Math.round((activeTenantsCount / propertiesCount) * 100) : 0;
+
+        setMetrics({ revenue: rev, outstanding, repairs: activeRepairs, occupancyRate, activeLeases });
+        setDataLoaded(true);
+
+        if (userRole === 'Landlord') {
+           const mQ = query(collection(db, 'users'), where('landlordId', '==', userProfile.uid), where('role', '==', 'Property Manager'));
+           const mSnap = await getDocs(mQ);
+           const managers = mSnap.docs.map(d => ({ uid: d.id, ...d.data() } as any));
+
+           const pQ2 = query(collection(db, 'properties'), where('LandlordID', '==', userProfile.uid));
+           const pSnap2 = await getDocs(pQ2);
+           const properties = pSnap2.docs.map(d => d.data() as Property);
+
+           let stats = managers.map(m => {
+             const propCount = properties.filter(p => p.PropertyManagerID === m.uid).length;
+             return { name: m.name || 'Unknown', email: m.email || '', count: propCount };
+           });
+           stats.sort((a, b) => b.count - a.count);
+           setManagerStats(stats);
+        }
+      } catch(e) {
+        console.error(e);
       }
     };
-    fetchManagerData();
+    fetchData();
   }, [userProfile, userRole]);
 
   return (
@@ -201,29 +268,31 @@ function Dashboard() {
         <div className="stat-card">
           <h3 className="text-label text-muted-foreground mb-[8px]">Occupancy Rate</h3>
           <div className="flex items-end justify-between">
-            <p className="text-metric">92%</p>
-            <span className="text-label text-emerald-500 bg-emerald-500/10 px-[8px] py-[4px] rounded-[8px]">+2.1%</span>
+            <p className="text-metric">{dataLoaded ? `${metrics.occupancyRate}%` : '...'}</p>
           </div>
         </div>
         <div className="stat-card">
-          <h3 className="text-label text-muted-foreground mb-[8px]">Monthly Revenue</h3>
+          <h3 className="text-label text-muted-foreground mb-[8px]">Total Revenue (Paid)</h3>
           <div className="flex items-end justify-between">
-            <p className="text-metric">{currencySymbol}24,500</p>
-            <span className="text-label text-emerald-500 bg-emerald-500/10 px-[8px] py-[4px] rounded-[8px]">+12.5%</span>
+            <p className="text-metric">{dataLoaded ? `${currencySymbol}${metrics.revenue.toLocaleString()}` : 'Loading...'}</p>
           </div>
         </div>
         <div className="stat-card">
           <h3 className="text-label text-muted-foreground mb-[8px]">Outstanding Rent</h3>
           <div className="flex items-end justify-between">
-            <p className="text-metric text-rose-500">{currencySymbol}3,200</p>
-            <span className="text-label text-rose-500 bg-rose-500/10 px-[8px] py-[4px] rounded-[8px]">-4.2%</span>
+            <p className="text-metric text-rose-500">{dataLoaded ? `${currencySymbol}${metrics.outstanding.toLocaleString()}` : 'Loading...'}</p>
           </div>
         </div>
         <div className="stat-card">
           <h3 className="text-label text-muted-foreground mb-[8px]">Active Repairs</h3>
           <div className="flex items-end justify-between">
-            <p className="text-metric">14</p>
-            <span className="text-label text-amber-500 bg-amber-500/10 px-[8px] py-[4px] rounded-[8px]">-2</span>
+            <p className="text-metric">{dataLoaded ? metrics.repairs : '...'}</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <h3 className="text-label text-muted-foreground mb-[8px]">Active Leases</h3>
+          <div className="flex items-end justify-between">
+            <p className="text-metric">{dataLoaded ? metrics.activeLeases : '...'}</p>
           </div>
         </div>
       </div>
@@ -241,59 +310,6 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[24px] mb-[32px]">
-        <div className="dense-card">
-          <h3 className="text-h3 mb-[24px]">Revenue Trend</h3>
-          <div className="h-[240px] w-full min-w-0 min-h-0">
-            <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
-              <AreaChart data={sampleRevenueData}>
-                <defs>
-                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} tickFormatter={(value) => `${currencySymbol}${value/1000}k`} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="dense-card flex flex-col">
-          <h3 className="text-h3 mb-[24px]">Occupancy Trend</h3>
-          <div className="h-[240px] w-full min-w-0 min-h-0">
-            <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
-              <LineChart data={sampleOccupancyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
-                <YAxis domain={['dataMin - 5', 'dataMax + 5']} axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} tickFormatter={(value) => `${value}%`} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={3} dot={{r: 4, strokeWidth: 2}} activeDot={{r: 6}} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[24px] mb-[32px]">
-        <div className="dense-card">
-          <h3 className="text-h3 mb-[24px]">Repair Requests Trend</h3>
-          <div className="h-[240px] w-full min-w-0 min-h-0">
-            <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
-              <BarChart data={sampleRepairData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
-                <Tooltip cursor={{fill: '#f3f4f6'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Bar dataKey="repairs" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         {userRole === 'Landlord' && (
           <div className="dense-card h-min">
             <h2 className="text-h3 mb-[16px]">Property Manager Performance</h2>
@@ -330,7 +346,7 @@ function Dashboard() {
 }
 
 function SettingsView() {
-  const { userProfile, userRole } = useFirebase();
+  const { userProfile, userRole, currentUser } = useFirebase();
   const [phoneNumber, setPhoneNumber] = useState(userProfile?.phoneNumber || '');
   const [currency, setCurrency] = useState(userProfile?.currency || 'USD');
   const [avatarUrl, setAvatarUrl] = useState(userProfile?.avatarUrl || '');
@@ -340,14 +356,14 @@ function SettingsView() {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !userProfile?.uid) return;
+    if (!file || !currentUser?.uid) return;
     setUploading(true);
     try {
-      const storageRef = ref(storage, `avatars/${userProfile.uid}/${Date.now()}`);
+      const storageRef = ref(storage, `avatars/${currentUser.uid}/${Date.now()}`);
       await uploadBytes(storageRef, file);
       const downloadedUrl = await getDownloadURL(storageRef);
       setAvatarUrl(downloadedUrl);
-      await setDoc(doc(db, 'users', userProfile.uid), {
+      await setDoc(doc(db, 'users', currentUser.uid), {
         avatarUrl: downloadedUrl
       }, { merge: true });
       setStatusMsg({ type: 'success', text: 'Avatar uploaded successfully' });
@@ -362,14 +378,14 @@ function SettingsView() {
   };
 
   const handleSave = async () => {
-    if (!userProfile?.uid) return;
+    if (!currentUser?.uid) return;
     setLoading(true);
     try {
-      await setDoc(doc(db, 'users', userProfile.uid), {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
         phoneNumber,
         avatarUrl,
         currency
-      }, { merge: true });
+      });
       setStatusMsg({ type: 'success', text: 'Profile updated successfully' });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (e) {
@@ -487,7 +503,7 @@ function SettingsView() {
         <div className="bg-card border rounded-3xl p-6 shadow-sm">
           <h2 className="text-xl font-semibold mb-4">System Preferences</h2>
           <p className="text-muted-foreground text-sm mb-4">These settings are currently managed by your organization's administrator.</p>
-          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-xl border border-dashed">
+          <div className="flex items-center justify-between p-4 bg-muted/20 rounded-xl border border-dashed mb-4">
             <div>
               <p className="font-medium">Two-Factor Authentication</p>
               <p className="text-xs text-muted-foreground">Add an extra layer of security.</p>
@@ -496,6 +512,57 @@ function SettingsView() {
               Enforced
             </button>
           </div>
+        </div>
+
+        <div className="bg-rose-50 border border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/50 rounded-3xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold mb-2 text-rose-600 dark:text-rose-400">Danger Zone</h2>
+          <p className="text-muted-foreground text-sm mb-4">Permanently delete your account and all associated data. This action cannot be undone.</p>
+          <button 
+            onClick={async () => {
+              if (window.confirm("Are you absolutely sure you want to delete your account? This will permanently erase your profile and records.")) {
+                try {
+                  const uid = userProfile?.uid;
+                  if (!uid || !currentUser) return;
+                  
+                  // Re-authenticate before starting the complex deletion transaction
+                  // This guarantees that deleteUser won't fail with requires-recent-login after we've already wiped the DB.
+                  const pwd = window.prompt("Security check: Please enter your password to confirm deletion.");
+                  if (!pwd) {
+                     setStatusMsg({ type: 'error', text: 'Deletion cancelled: Password required.' });
+                     return;
+                  }
+                  
+                  const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
+                  const credential = EmailAuthProvider.credential(currentUser.email!, pwd);
+                  await reauthenticateWithCredential(currentUser, credential);
+
+                  if (userRole === 'Service Provider') {
+                    await deleteDoc(doc(db, 'serviceProviders', uid));
+                  } else if (userRole === 'Tenant') {
+                    const tQ = query(collection(db, 'tenants'), where('AssociatedAuthUid', '==', uid));
+                    const tSnap = await getDocs(tQ);
+                    await Promise.all(tSnap.docs.map(d => deleteDoc(d.ref)));
+                  }
+                  
+                  // Delete user record from Firestore FIRST to ensure permissions exist
+                  await deleteDoc(doc(db, 'users', uid));
+                  
+                  // Delete Firebase Auth user LAST
+                  await deleteUser(currentUser);
+                  
+                  setStatusMsg({ type: 'success', text: 'Account deleted. Redirecting...' });
+                  setTimeout(() => window.location.href = '/login', 2000);
+                } catch (e) {
+                  console.error(e);
+                  setStatusMsg({ type: 'error', text: 'Failed to delete account' });
+                  setTimeout(() => setStatusMsg(null), 3000);
+                }
+              }
+            }}
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+          >
+            Delete Account
+          </button>
         </div>
       </div>
     </div>
@@ -506,8 +573,71 @@ function MainLayout() {
   const { userProfile, userRole, logout } = useFirebase();
   const [isDark, setIsDark] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [globalIncomingCall, setGlobalIncomingCall] = useState<any>(null);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (globalIncomingCall && globalIncomingCall.status === 'calling') {
+      timeout = setTimeout(async () => {
+         try {
+           await updateDoc(doc(db, 'calls', globalIncomingCall.id), { status: 'missed' });
+         } catch(e) { console.error('Missed call update failed', e); }
+      }, 60000);
+    }
+    return () => clearTimeout(timeout);
+  }, [globalIncomingCall]);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userProfile?.uid) return;
+    const callsRef = collection(db, 'calls');
+    const q = query(callsRef, where('receiverId', '==', userProfile.uid), where('status', '==', 'calling'));
+    
+    const unsub = onSnapshot(q, (snap) => {
+       if (!snap.empty) {
+          const callData = snap.docs[0].data();
+          setGlobalIncomingCall({ id: snap.docs[0].id, ...callData });
+          
+          if ('Notification' in window && Notification.permission === 'granted' && location.pathname !== '/messages') {
+             const n = new Notification(`Incoming Call`, {
+                body: `${callData.callerName || 'Someone'} is calling you...`,
+                icon: '/logo.png',
+                tag: 'incoming-call',
+                requireInteraction: true
+             });
+             n.onclick = () => {
+                window.focus();
+                n.close();
+                navigate('/messages', { state: { autoAnswerCallId: snap.docs[0].id } });
+             };
+          }
+       } else {
+          setGlobalIncomingCall(null);
+       }
+    });
+    return () => unsub();
+  }, [userProfile, location.pathname, navigate]);
+
+  useEffect(() => {
+     let audio: HTMLAudioElement;
+     if (globalIncomingCall && location.pathname !== '/messages') {
+         // Play ringtone for incoming call globally
+         audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2832/2832-preview.mp3');
+         audio.loop = true;
+         audio.play().catch(e => console.log('Audio play blocked', e));
+     }
+     return () => {
+        if (audio) { audio.pause(); audio.src = ''; }
+     };
+  }, [globalIncomingCall, location.pathname]);
 
   useEffect(() => {
     if (!userProfile?.uid) return;
@@ -516,6 +646,28 @@ function MainLayout() {
       let notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       notifs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setNotifications(notifs);
+
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          if (!data.read && 'Notification' in window && Notification.permission === 'granted') {
+             const isRecent = new Date().getTime() - new Date(data.createdAt).getTime() < 60000;
+             if (isRecent) {
+                const browserNotif = new Notification(data.title || 'New Alert', {
+                   body: data.message || 'You have a new message.',
+                   icon: '/logo.png'
+                });
+                browserNotif.onclick = () => {
+                   window.focus();
+                   browserNotif.close();
+                   if (data.type === 'message') {
+                      navigate('/messages');
+                   }
+                };
+             }
+          }
+        }
+      });
     });
     return () => unsubscribe();
   }, [userProfile]);
@@ -580,6 +732,7 @@ function MainLayout() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadMsgCount = notifications.filter(n => !n.read && n.type === 'message').length;
 
   useEffect(() => {
     if (isDark) {
@@ -589,36 +742,108 @@ function MainLayout() {
     }
   }, [isDark]);
 
+  if (userProfile && !userProfile.profileCompleted && ['Landlord', 'Property Manager', 'Service Provider', 'Agency', 'Developer'].includes(userProfile.role)) {
+    return <ProfileCompletion />;
+  }
+
   const allNavItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['Landlord', 'Property Manager'] },
-    { name: 'Provider', path: '/provider', icon: LayoutDashboard, roles: ['Service Provider'] },
-    { name: 'Marketplace', path: '/marketplace', icon: Wrench, roles: ['Tenant', 'Landlord', 'Property Manager', 'Admin'] },
-    { name: 'Admin', path: '/admin', icon: LayoutDashboard, roles: ['Admin'] },
-    { name: 'Security', path: '/security', icon: LayoutDashboard, roles: ['Security Staff'] },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['Landlord'] },
+    { name: 'Manager', path: '/manager', icon: LayoutDashboard, roles: ['Property Manager'] },
     { name: 'Tenant', path: '/tenant', icon: LayoutDashboard, roles: ['Tenant'] },
-    { name: 'Properties', path: '/properties', icon: Building2, roles: ['Admin', 'Landlord', 'Property Manager'] },
+    { name: 'Security', path: '/security', icon: LayoutDashboard, roles: ['Security Staff'] },
+    { name: 'Provider', path: '/provider', icon: LayoutDashboard, roles: ['Service Provider'] },
+    { name: 'Agency', path: '/agency', icon: LayoutDashboard, roles: ['Agency'] },
+    { name: 'Developer', path: '/developer', icon: LayoutDashboard, roles: ['Developer'] },
+    { name: 'Admin', path: '/admin', icon: LayoutDashboard, roles: ['Admin'] },
+    { name: 'Repairs', path: '/repairs', icon: Wrench, roles: ['Tenant', 'Landlord', 'Property Manager', 'Security Staff', 'Service Provider', 'Admin'] },
+    { name: 'Leases', path: '/leases', icon: FileText, roles: ['Tenant', 'Landlord', 'Property Manager', 'Admin'] },
+    { name: 'Finance', path: '/finance', icon: CreditCard, roles: ['Landlord', 'Property Manager', 'Admin'] },
+    { name: 'Vacancies', path: '/vacancies', icon: Home, roles: ['Landlord', 'Property Manager', 'Admin'] },
+    { name: 'Service Provider', path: '/marketplace', icon: Building2, roles: ['Admin', 'Landlord', 'Property Manager', 'Tenant'] },
+    { name: 'Marketplace', path: '/portal', icon: Search, roles: ['Admin', 'Landlord', 'Property Manager', 'Tenant', 'Service Provider', 'Security Staff', 'Property Seeker', 'Agency', 'Developer'] },
+    { name: 'Properties', path: '/properties', icon: Home, roles: ['Admin', 'Landlord', 'Property Manager'] },
     { name: 'Tenants', path: '/tenants', icon: Users, roles: ['Admin', 'Landlord', 'Property Manager'] },
     { name: 'Staff', path: '/staff', icon: Shield, roles: ['Admin', 'Landlord', 'Property Manager'] },
     { name: 'Payments', path: '/payments', icon: CreditCard, roles: ['Landlord', 'Property Manager', 'Tenant'] },
-    { name: 'Settings', path: '/settings', icon: Settings, roles: ['Admin', 'Landlord', 'Property Manager', 'Security Staff', 'Tenant'] },
+    { name: 'Messages', path: '/messages', icon: MessageSquare, roles: ['Admin', 'Landlord', 'Property Manager', 'Tenant'] },
+    { name: 'Settings', path: '/settings', icon: Settings, roles: ['Admin', 'Landlord', 'Property Manager', 'Security Staff', 'Tenant', 'Service Provider', 'Property Seeker', 'Agency', 'Developer'] },
   ];
 
   const navItems = allNavItems.filter(item => item.roles.includes(userRole || ''));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="h-[100dvh] w-full bg-background flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 border-r bg-card h-auto md:h-screen flex md:flex-col items-center md:items-start px-[16px] py-[16px] md:p-[24px] justify-between md:justify-start sticky top-0 z-50 shadow-sm md:shadow-none">
+      <aside className="w-full md:w-64 border-r bg-card h-auto md:h-screen flex flex-col items-center md:items-start px-[16px] py-[16px] md:p-[24px] justify-between md:justify-start sticky top-0 z-50 shadow-sm md:shadow-none relative">
         
-        <Link to="/dashboard" className="flex items-center justify-center md:justify-start gap-[12px] mb-0 md:mb-[32px] text-emerald-500 w-auto md:w-full shrink-0 hover:opacity-80 transition-opacity">
-          <div className="relative flex items-center justify-center rounded-[8px] overflow-hidden shrink-0">
-            <img src="/logo.png" alt="RentFlow Pro" className="w-8 h-8 md:w-8 md:h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-            <div className="p-1.5 bg-emerald-500 rounded-[8px] hidden">
-              <Building2 className="w-6 h-6 md:w-5 md:h-5 text-white" />
+        {showNotifications && (
+          <div className="absolute top-[60px] right-4 md:right-auto md:bottom-[72px] md:left-4 md:top-auto w-72 bg-card border rounded-2xl shadow-xl z-[999] overflow-hidden">
+            <div className="p-4 border-b bg-muted/20">
+              <h3 className="font-semibold text-sm">Notifications</h3>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-4 flex flex-col items-center justify-center text-center">
+                  <p className="text-muted-foreground text-sm">No new notifications</p>
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div 
+                    key={n.id} 
+                    onClick={() => {
+                      if (!n.read) markAsRead(n.id);
+                      setShowNotifications(false);
+                      if (n.type === 'message') {
+                         navigate('/messages');
+                      }
+                    }}
+                    className={`p-4 border-b last:border-0 cursor-pointer transition-colors hover:bg-muted/30 ${!n.read ? 'bg-primary/5' : ''}`}
+                  >
+                    <p className="text-sm font-medium">{n.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{n.message}</p>
+                    {!n.read && <div className="mt-2 text-[10px] text-primary font-bold tracking-wider uppercase">Mark as read</div>}
+                  </div>
+                ))
+              )}
             </div>
           </div>
-          <span className="font-[800] text-[18px] text-foreground tracking-tight hidden sm:block">RentFlow Pro</span>
-        </Link>
+        )}
+
+        <div className="flex w-full items-center justify-between mb-[16px] md:mb-[32px]">
+          <Link to="/dashboard" className="flex items-center justify-center md:justify-start gap-[12px] text-emerald-500 w-auto shrink-0 hover:opacity-80 transition-opacity">
+            <div className="relative flex items-center justify-center rounded-[8px] overflow-hidden shrink-0">
+              <img src="/logo.png" alt="RentFlow Pro" className="w-8 h-8 md:w-8 md:h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+              <div className="p-1.5 bg-emerald-500 rounded-[8px] hidden">
+                <Building2 className="w-6 h-6 md:w-5 md:h-5 text-white" />
+              </div>
+            </div>
+            <span className="font-[800] text-[18px] text-foreground tracking-tight hidden sm:block">RentFlow Pro</span>
+          </Link>
+
+          <div className="flex md:hidden items-center gap-[8px]">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 rounded-lg hover:bg-accent text-muted-foreground transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+              )}
+            </button>
+            <button 
+              onClick={() => setIsDark(!isDark)}
+              className="p-2 rounded-lg hover:bg-accent text-muted-foreground transition-colors"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button 
+              onClick={logout}
+              className="p-2 rounded-lg hover:bg-rose-500/10 hover:text-rose-600 text-muted-foreground transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
         <nav className="flex md:flex-col gap-[8px] w-full flex-row justify-start md:justify-start overflow-x-auto scrollbar-hide md:mb-auto pb-[16px] md:pb-0 px-[8px] md:px-0">
           {navItems.map((item) => {
@@ -635,6 +860,11 @@ function MainLayout() {
               >
                 <item.icon className="w-5 h-5 md:w-4 md:h-4 shrink-0" />
                 <span className="hidden sm:block text-[12px] md:text-[14px]">{item.name}</span>
+                {item.name === 'Messages' && unreadMsgCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold">
+                    {unreadMsgCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -667,33 +897,6 @@ function MainLayout() {
             </button>
           </div>
 
-          {showNotifications && (
-            <div className="absolute bottom-full left-0 mb-4 w-72 bg-card border rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="p-4 border-b bg-muted/20">
-                <h3 className="font-semibold text-sm">Notifications</h3>
-              </div>
-              <div className="max-h-64 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-4 flex flex-col items-center justify-center text-center">
-                    <p className="text-muted-foreground text-sm">No new notifications</p>
-                  </div>
-                ) : (
-                  notifications.map(n => (
-                    <div 
-                      key={n.id} 
-                      onClick={() => !n.read && markAsRead(n.id)}
-                      className={`p-4 border-b last:border-0 cursor-pointer transition-colors hover:bg-muted/30 ${!n.read ? 'bg-primary/5' : ''}`}
-                    >
-                      <p className="text-sm font-medium">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{n.message}</p>
-                      {!n.read && <div className="mt-2 text-[10px] text-primary font-bold tracking-wider uppercase">Mark as read</div>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
           <div className="flex gap-2">
             <button 
               onClick={() => setIsDark(!isDark)}
@@ -713,12 +916,41 @@ function MainLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-y-auto">
+      <main className="flex-1 flex flex-col overflow-y-auto relative">
+        {/* Global Call Overlay */}
+        {globalIncomingCall && location.pathname !== '/messages' && (
+           <div className="fixed top-4 md:top-6 right-4 md:right-6 z-[100] bg-zinc-900 border border-zinc-800 shadow-2xl rounded-2xl p-4 md:p-5 flex flex-col items-center animate-in slide-in-from-top-10 text-white w-[280px]">
+              <div className="bg-emerald-500/20 p-4 rounded-full mb-3 animate-pulse border border-emerald-500/30">
+                 <Phone className="w-8 h-8 text-emerald-400" />
+              </div>
+              <h4 className="font-bold text-lg mb-1">{globalIncomingCall.callerName}</h4>
+              <p className="text-xs text-zinc-400 mb-5">Incoming voice call...</p>
+              <div className="flex w-full gap-3">
+                 <button onClick={() => updateDoc(doc(db, 'calls', globalIncomingCall.id), { status: 'ended' })} className="flex-1 py-2.5 bg-rose-500/10 text-rose-400 rounded-[12px] text-sm font-semibold hover:bg-rose-500 hover:text-white transition-colors border border-rose-500/20">Decline</button>
+                 <button onClick={() => navigate('/messages', { state: { autoAnswerCallId: globalIncomingCall.id } })} className="flex-1 py-2.5 bg-emerald-500 text-white rounded-[12px] text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20">Answer</button>
+              </div>
+           </div>
+        )}
         <Routes>
           <Route path="/" element={<RoleBasedRedirect />} />
           <Route path="/dashboard" element={
-            <RequireRole allowedRoles={['Landlord', 'Property Manager']}>
+            <RequireRole allowedRoles={['Landlord']}>
               <Dashboard />
+            </RequireRole>
+          } />
+          <Route path="/manager" element={
+            <RequireRole allowedRoles={['Property Manager']}>
+              <ManagerDashboard />
+            </RequireRole>
+          } />
+          <Route path="/agency" element={
+            <RequireRole allowedRoles={['Agency']}>
+              <AgencyDashboard />
+            </RequireRole>
+          } />
+          <Route path="/developer" element={
+            <RequireRole allowedRoles={['Developer']}>
+              <DeveloperDashboard />
             </RequireRole>
           } />
           <Route path="/provider" element={
@@ -729,6 +961,26 @@ function MainLayout() {
           <Route path="/marketplace" element={
             <RequireRole allowedRoles={['Tenant', 'Landlord', 'Property Manager', 'Admin']}>
               <Marketplace />
+            </RequireRole>
+          } />
+          <Route path="/repairs" element={
+            <RequireRole allowedRoles={['Tenant', 'Landlord', 'Property Manager', 'Admin', 'Service Provider', 'Security Staff']}>
+              <Repairs />
+            </RequireRole>
+          } />
+          <Route path="/leases" element={
+            <RequireRole allowedRoles={['Tenant', 'Landlord', 'Property Manager', 'Admin']}>
+              <Leases />
+            </RequireRole>
+          } />
+          <Route path="/finance" element={
+            <RequireRole allowedRoles={['Landlord', 'Property Manager', 'Admin']}>
+              <Finance />
+            </RequireRole>
+          } />
+          <Route path="/vacancies" element={
+            <RequireRole allowedRoles={['Landlord', 'Property Manager', 'Admin']}>
+              <VacanciesAdmin />
             </RequireRole>
           } />
           <Route path="/admin" element={
@@ -766,8 +1018,13 @@ function MainLayout() {
               <Payments />
             </RequireRole>
           } />
+          <Route path="/messages" element={
+            <RequireRole allowedRoles={['Admin', 'Landlord', 'Property Manager', 'Tenant']}>
+              <Messages />
+            </RequireRole>
+          } />
           <Route path="/settings" element={
-            <RequireRole allowedRoles={['Admin', 'Landlord', 'Property Manager', 'Security Staff', 'Tenant']}>
+            <RequireRole allowedRoles={['Admin', 'Landlord', 'Property Manager', 'Security Staff', 'Tenant', 'Service Provider']}>
               <SettingsView />
             </RequireRole>
           } />
@@ -843,6 +1100,82 @@ function ForcePasswordReset() {
   );
 }
 
+function VerifyEmailScreen() {
+  const { currentUser } = useFirebase();
+  const [resending, setResending] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const handleResend = async () => {
+    if (!currentUser) return;
+    setResending(true);
+    setMessage('');
+    setError('');
+    try {
+      const { sendEmailVerification } = await import('firebase/auth');
+      await sendEmailVerification(currentUser);
+      setMessage('Verification email sent! Please check your inbox.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send verification email.');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (currentUser) {
+      await currentUser.reload();
+      window.location.reload(); // Quick way to re-check the emailVerified state from auth and refresh UI
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <div className="max-w-md w-full bg-card p-8 rounded-3xl border shadow-xl flex flex-col items-center text-center">
+        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+          <Mail className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">Verify your email</h2>
+        <p className="text-muted-foreground mb-8">
+          We sent a verification link to <span className="font-semibold text-foreground">{currentUser?.email}</span>. 
+          Please check your inbox and click the link to verify your account.
+        </p>
+
+        {message && <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl mb-4 w-full text-sm font-medium">{message}</div>}
+        {error && <div className="p-3 bg-rose-500/10 text-rose-600 rounded-xl mb-4 w-full text-sm font-medium">{error}</div>}
+
+        <div className="flex flex-col gap-3 w-full">
+          <button
+            onClick={handleRefresh}
+            className="w-full bg-emerald-600 text-white font-semibold py-3 px-4 rounded-xl hover:bg-emerald-700 transition"
+          >
+            I have verified my email
+          </button>
+          
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="w-full bg-muted text-foreground font-semibold py-3 px-4 rounded-xl hover:bg-muted/80 transition"
+          >
+            {resending ? 'Sending...' : 'Resend verification email'}
+          </button>
+
+          <button
+            onClick={async () => {
+              const { auth } = await import('./firebase');
+              const { signOut } = await import('firebase/auth');
+              await signOut(auth);
+            }}
+            className="w-full text-muted-foreground font-semibold py-2 px-4 rounded-xl hover:text-foreground transition mt-2 text-sm"
+          >
+            Use a different account
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { currentUser, userProfile, isLoading } = useFirebase();
   const location = useLocation();
@@ -862,6 +1195,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!currentUser.emailVerified) {
+    return <VerifyEmailScreen />;
   }
 
   if (userProfile?.requirePasswordReset) {
@@ -886,6 +1223,7 @@ export default function App() {
       }>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/portal/*" element={<PublicMarketplace />} />
           <Route path="/*" element={
             <RequireAuth>
               <MainLayout />

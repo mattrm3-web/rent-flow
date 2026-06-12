@@ -8,7 +8,28 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Define API routes here
+  // API routes here
+  app.post("/api/webhooks/:gateway", async (req, res) => {
+    // In a real app, verify signature (e.g. req.headers['stripe-signature'])
+    const { gateway } = req.params;
+    const event = req.body;
+    
+    console.log(`Received ${gateway} webhook:`, event);
+    
+    // Simulate webhook processing
+    // To update firestore from here we'd normally use firebase-admin
+    // For this prototype, we'll return 200 to acknowledge.
+    // The frontend/tests will trigger the update via another endpoint /api/simulate-payment-success
+    // which emulates the webhook's effect on DB.
+    res.json({ received: true });
+  });
+
+  // Simulated Webhook Processor for Preview Environment
+  app.post("/api/simulate-payment-success", async (_req, res) => {
+    // We would use firebase-admin here
+    // To keep the workspace pure, we just acknowledge the simulation
+    res.json({ success: true, message: "Webhook processed" });
+  });
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

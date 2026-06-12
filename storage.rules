@@ -39,5 +39,10 @@ service firebase.storage {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Voice Notes
+    match /voice_notes/{chatId}/{fileName} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
